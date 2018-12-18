@@ -16,18 +16,15 @@
 package org.springframework.hateoas;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.springframework.hateoas.support.MappingUtils.*;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.Charset;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.hateoas.VndErrors.VndError;
-import org.springframework.hateoas.core.EvoInflectorRelProvider;
+import org.springframework.hateoas.core.AnnotationRelProvider;
 import org.springframework.hateoas.hal.Jackson2HalModule;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,53 +40,79 @@ public class VndErrorsMarshallingTest {
 
 	ObjectMapper jackson2Mapper;
 
-	RelProvider relProvider = new EvoInflectorRelProvider();
-
-	VndErrors errors;
-	String jsonReference;
-	String json2Reference;
-
-	public VndErrorsMarshallingTest() throws IOException {
-
-		jsonReference = readFile(new ClassPathResource("vnderror.json"));
-		json2Reference = readFile(new ClassPathResource("vnderror2.json"));
-	}
-
 	@Before
-	public void setUp() throws Exception {
+	public void setUp() {
 
+		RelProvider relProvider = new AnnotationRelProvider();
+		
 		jackson2Mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 		jackson2Mapper.registerModule(new Jackson2HalModule());
 		jackson2Mapper.setHandlerInstantiator(new Jackson2HalModule.HalHandlerInstantiator(relProvider, null, null));
 		jackson2Mapper.configure(SerializationFeature.INDENT_OUTPUT, true);
-
-		VndError error = new VndError("42", "Validation failed!", //
-				new Link("http://...", "describes"), new Link("http://...", "help"));
-		errors = new VndErrors(error, error, error);
-	}
-
-	/**
-	 * @see #62
-	 */
-	@Test
-	public void jackson2Marshalling() throws Exception {
-		assertThat(jackson2Mapper.writeValueAsString(errors)).isEqualToIgnoringWhitespace(json2Reference);
 	}
 
 	/**
 	 * @see #93, #94
 	 */
 	@Test
-	public void jackson2UnMarshalling() throws Exception {
-		assertThat(jackson2Mapper.readValue(jsonReference, VndErrors.class)).isEqualTo(errors);
+	public void singleItemVndErrorShouldDeserialize() throws IOException {
+
+		String json = read(new ClassPathResource("vnderror-single-item.json"));
+
+		VndError error = new VndError("Validation failed", "/username", 42, //
+			new Link("http://path.to/user/resource/1", VndErrors.REL_ABOUT),
+			new Link("http://path.to/describes", VndErrors.REL_DESCRIBES),
+			new Link("http://path.to/help", VndErrors.REL_HELP));
+
+		assertThat(jackson2Mapper.readValue(json, VndError.class)).isEqualTo(error);
 	}
 
-	private static String readFile(org.springframework.core.io.Resource resource) throws IOException {
+	/**
+	 * @see #62
+	 */
+	@Test
+	public void singleItemVndErrorShouldSerialize() throws IOException {
 
-		try (FileInputStream stream = new FileInputStream(resource.getFile())) {
-			FileChannel fc = stream.getChannel();
-			MappedByteBuffer bb = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
-			return Charset.defaultCharset().decode(bb).toString();
-		}
+		VndError error = new VndError("Validation failed", "/username", 42, //
+			new Link("http://path.to/user/resource/1", VndErrors.REL_ABOUT),
+			new Link("http://path.to/describes", VndErrors.REL_DESCRIBES),
+			new Link("http://path.to/help", VndErrors.REL_HELP));
+
+		String json = read(new ClassPathResource("vnderror-single-item.json"));
+
+		assertThat(jackson2Mapper.writeValueAsString(error)).isEqualTo(json);
+
+	}
+
+	@Test
+	public void multipleItemVndErrorsShouldDeserialize() throws IOException {
+
+		String json = read(new ClassPathResource("vnderrors-multiple-item.json"));
+
+		VndError error1 = new VndError("\"username\" field validation failed", null, 50, //
+			new Link("http://.../", VndErrors.REL_HELP));
+
+		VndError error2 = new VndError("\"postcode\" field validation failed", null, 55, //
+			new Link("http://.../", VndErrors.REL_HELP));
+
+		VndErrors vndErrors = new VndErrors(error1, error2);
+
+		assertThat(jackson2Mapper.readValue(json, VndErrors.class)).isEqualTo(vndErrors);
+	}
+
+	@Test
+	public void multipleItemVndErrorsShouldSerialize() throws IOException {
+
+		VndError error1 = new VndError("\"username\" field validation failed", null, 50, //
+			new Link("http://.../", VndErrors.REL_HELP));
+
+		VndError error2 = new VndError("\"postcode\" field validation failed", null, 55, //
+			new Link("http://.../", VndErrors.REL_HELP));
+
+		VndErrors vndErrors = new VndErrors(error1, error2);
+
+		String json = read(new ClassPathResource("vnderrors-multiple-item.json"));
+
+		assertThat(jackson2Mapper.writeValueAsString(vndErrors)).isEqualTo(json);
 	}
 }

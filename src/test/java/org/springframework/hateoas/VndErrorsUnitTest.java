@@ -30,11 +30,11 @@ public class VndErrorsUnitTest {
 	@Test
 	public void rendersToStringCorrectly() {
 
-		VndError error = new VndErrors.VndError("logref", "message", new Link("foo", "bar"));
-		assertThat(error.toString()).isEqualTo("VndError[logref: logref, message: message, links: [<foo>;rel=\"bar\"]]");
+		VndError error = new VndErrors.VndError("message", "path", 50, new Link("foo", "bar"));
+		assertThat(error.toString()).isEqualTo("VndError[message: message, path: path, logref: 50, links: [<foo>;rel=\"bar\"]]");
 
 		VndErrors errors = new VndErrors(error);
 		assertThat(errors.toString()) //
-				.isEqualTo("VndErrors[VndError[logref: logref, message: message, links: [<foo>;rel=\"bar\"]]]");
+				.isEqualTo("VndErrors{errors=[VndError[message: message, path: path, logref: 50, links: [<foo>;rel=\"bar\"]]]}");
 	}
 }
